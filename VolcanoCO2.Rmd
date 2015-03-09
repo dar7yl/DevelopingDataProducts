@@ -15,7 +15,7 @@ library(scales)
 library(lubridate)
 library(pspline)
 ```
-CO2 data: <http://co2now.org/Current-CO2/CO2-Now/scripps-co2-data-mauna-loa-observatory.html>
+CO2 data: <file://./data/co2_mm_mlo.txt>
 ```{r ReadData}
 co2 <- read.table("./data/co2_mm_mlo.txt", header=TRUE, quote="\"", na.strings = "-99.99")
 names(co2)<-c("year", "month", "decimal_date", "average", "interpolated", "trend", "numdays")
@@ -30,13 +30,18 @@ vol.Classes <- c( "factor", "Date", "Date", "numeric")
 vol <- read.csv("./data/Volcanos.csv", na.strings = "NA", colClasses=vol.Classes)
 
 vol$erupted<-decimal_date(as.Date(vol$Eruption_date))
+
+#fixup the NA/s in average by using the interpolated values
+co2.na<-is.na(co2$average)
+co2$average[co2.na] <- co2$interpolated[co2.na]
+
 #vol$enderupt[is.na(vol$enderupt)]<-vol$Eruption_date
 #vol$enderupt<-decimal_date(as.Date(vol$EndEruption_date))
 ```
 * Set up plot functions.
 ```{r PlotFunctions}
-plot.volcanos<- function(...) abline(v=vol$erupted)
-plot.co2<- function(...) {plot(x=co2$decimal_date, xlab="Date", ...); plot.volcanos()}
+plot.volcanos<- function(vol.col="green",...) abline(v=vol$erupted, col=vol.col)
+plot.co2<- function(x=co2$decimal_date,...) {plot(x, xlab="Date", ...); plot.volcanos()}
 lines.co2<- function(...) {lines(x=co2$decimal_date, ...)}
 ```
 
@@ -61,56 +66,49 @@ fit1  <- lm(y~x)
 fit2 <- lm(y~poly(x,2,raw=TRUE))
 fit3 <- lm(y~poly(x,3,raw=TRUE))
 
-par(mfrow = c(2, 2))
+op<-par(mfrow = c(2, 2))
 plot(fit1, main="fit 1 (linear)")
 plot(fit2, main="fit 2 (square)")
 plot(fit3, main="fit 3 (cubic)")
-par(mfrow = c(1,1))
-xx <- seq(1958.00,2016.00, by=0.66)
-plot(x,y,pch=19,ylim=c(310,410),type="l")
-lines(xx, predict(fit1, data.frame(x=xx)), col="red")
-lines(xx, predict(fit2, data.frame(x=xx)), col="green")
-lines(xx, predict(fit3, data.frame(x=xx)), col="blue")
-
+par(op)
 
 ```
 
-* It looks like the linear fit (red line is way off, but the blue and green lines are better.
-* I'll isolate them and print the log.
-```{r LogPlots}
-plot.co2(y=log(co2$trend),pch=19,type="l")
-lines(xx, log(predict(fit1, data.frame(x=xx))), col="red")
-lines(xx, log(predict(fit2, data.frame(x=xx))), col="green")
-lines(xx, log(predict(fit3, data.frame(x=xx))), col="blue")
-```
-
-* I'll look at the residuals after subracting the fits - that should be the non-periodic forcings. 
+* I'll look at the residuals. 
 ```{r Residuals}
-# now, look at the residuals after subtracting fits.
-xFramed <- data.frame(x=co2$decimal_date)
-rp2=y-predict(fit2, xFramed)
-rp3=y-predict(fit3, xFramed)
+# now, look at the residuals
 
-#points(x=x,y=yp3,col="green")
-plot.co2(y=log(rp2+1.6), col=alpha("red",.5), type="l", lwd=5)
-lines.co2(y=log(rp3+1.6), col=alpha("green",.2), lwd=3)
-
+plot.co2(resid(fit1), col=alpha("red",.8), type="l", lwd=8, main="Residuals")
+lines.co2(resid(fit2), col=alpha("blue",.5), type="l", lwd=5)
+lines.co2(resid(fit3), col=alpha("yellow",.3), type="l", lwd=3)
 ```
 
-* There doesn't seem to be any difference between the square and cube fits
+* There doesn't seem to be much difference between the square and cube fits
  we will just use the square fit.
 * I would like to subract the residuals, and perform a new fit, to see if the data cleans up anymore
 * remove the residuals from the original data, then re-run the simulation
 ```{r, SubResiduals}
-trr<- co2$trend - rp2
-fit2b <- lm(trr~poly(co2$decimal_date,2,raw=TRUE))
-rp2b = co2$trend-predict(fit2b, xFramed)
-plot.co2(y=log(rp2b+1.6), type="l")
+op<-par(mfrow = c(2, 2))
+
+trr<- co2$trend - fit2$residuals
+fit2b <- lm(trr~poly(x,2,raw=TRUE))
+plot(fit2b, main="Fit2b (square)")
+
+trr<- co2$trend - fit3$residuals
+fit3b <- lm(trr~poly(x,3,raw=TRUE))
+plot(fit3b, main="Fit3b (cubic)")
+
+fit4 <- lm(trr~poly(x,4,raw=TRUE))
+plot.co2(log(fit4$residuals+1e-12), main="Fit4 (quad)", type="l")
+
+par(op)
+
+plot.co2(y=log(resid(fit2)+1.56), type="l")
 #lines(x=co2$decimal_date, y=log(rp2+1.6), col=alpha("red",.5))
 
 plot.co2( y=co2$trend, type="l", lwd=8, col="blue")
-lines.co2(y=co2$trend-rp2, type="l", lw=5, col="green")
-lines.co2(y=co2$trend-rp2b, type="l", lw=3, col="red")
+lines.co2(y=co2$trend-resid(fit2), type="l", lw=5, col="green")
+lines.co2(y=co2$trend-resid(fit2b), type="l", lw=3, col="red")
 
 ```
 
@@ -122,9 +120,9 @@ anova(fit1,fit3)
 ```
 
 * That looks like some real activity. There is definitely a response to the eruptions, but it's subtle.
-* try a spline fit to the residuals
+## try a spline fit to the residuals
 ```{r DiffEqs}
-dds <- sm.spline(x, rp2b)
+dds <- sm.spline(x, resid(fit2))
 summary(dds)
 ddyb <- predict(dds, x, 1)
 summary(ddyb)
@@ -133,4 +131,41 @@ plot.co2(y=ddyb, type='l', col="blue")
 
 plot.co2(y=log(ddyb+4), type='l', col="blue")
 ```
+## Use VAR 
+```{r vars, echo=FALSE	}
+library(vars)
 
+var.co2 <- VAR(co2[,c("decimal_date", "trend")], p = 2, type = "const", )
+
+op<-par(mfrow=c(2,2))
+plot(var.co2)
+par(mrows=c(2,1))
+plot.co2( main="Trend Residuals",
+	x=var.co2$varresult$decimal_date$fitted.values, 
+	y=var.co2$varresult$trend$residuals, type="l")
+
+plot.co2( main="log(Trend Residuals)",
+	x=var.co2$varresult$decimal_date$fitted.values, 
+	y=log(var.co2$varresult$trend$residuals+1), type="l")
+
+#plot(irf(var.co2, impulse = "e", response = c("prod", "rw", "U"), boot = T))
+par(op)
+```
+
+## Zoom in on the volcano timeframes
+Showing the CO2 Residuals from 1/2 year before until 2 years after the event
+```{r ZoomVolcanos}
+par(mfrow=c(3,2))
+for (date.erupted in vol$erupted) 
+{
+	plot.co2( main= "Trend Residuals", ylab="CO2 Res",
+		x=var.co2$varresult$decimal_date$fitted.values, 
+		y=var.co2$varresult$trend$residuals, type="l",
+		xlim=c(date.erupted-0.5, date.erupted+2) )
+
+	plot.co2( main="log(Trend Residuals)", ylab="CO2 Res",
+		x=var.co2$varresult$decimal_date$fitted.values, 
+		y=log(var.co2$varresult$trend$residuals+1), type="l",
+		xlim=c(date.erupted-.5, date.erupted+2) )
+}
+```
