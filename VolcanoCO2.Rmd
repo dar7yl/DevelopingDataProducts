@@ -16,7 +16,11 @@ library(scales)
 library(lubridate)
 library(pspline)
 ```
-CO2 data: <http://www.esrl.noaa.gov/gmd/ccgg/trends/#mlo_full> copied to ./data/ on Mar 5, 2015
+* CO2 data: <http://www.esrl.noaa.gov/gmd/ccgg/trends/#mlo_full> copied to ./data/ on Mar 5, 2015.
+
+  The carbon dioxide data, measured as the mole fraction in dry air, on Mauna Loa constitute the longest record of direct measurements of CO2 in the atmosphere. They were started by C. David Keeling of the Scripps Institution of Oceanography in March of 1958 at a facility of the National Oceanic and Atmospheric Administration [Keeling, 1976]. NOAA started its own CO2 measurements in May of 1974, and they have run in parallel with those made by Scripps since then [Thoning, 1989]. The trend value represents the seasonally corrected data.
+
+Data are reported as a dry mole fraction defined as the number of molecules of carbon dioxide divided by the number of molecules of dry air multiplied by one million (ppm). 
 ```{r ReadData}
 co2 <- read.table("./data/co2_mm_mlo.txt", header=TRUE, quote="\"", na.strings = "-99.99")
 names(co2)<-c("year", "month", "decimal_date", "average", "interpolated", "trend", "numdays")
@@ -32,7 +36,6 @@ summary(co2)
 ```{r LoadVolcanos}
 
 vol.Classes <- c( "factor", "Date", "Date", "numeric")
-
 vol <- read.csv("./data/Volcanos.csv", na.strings = "NA", colClasses=vol.Classes)
 
 vol.na<-is.na(vol$EndEruption_date)
@@ -59,6 +62,7 @@ plot.co2<- function(x=co2$decimal_date,...)
 lines.co2<- function(...) {lines(x=co2$decimal_date, ...)}
 ```
 # Initial plot
+
 ** blue is the monthly average
 ** black is the trend
 ** green lines are the volcano eruptions.
@@ -69,7 +73,7 @@ plot.co2(y=co2$average, type="l",  main="Average Monthly CO2 at Mauna Loa",
 lines.co2(y=co2$trend, type="l", col="black")
 ```
 
-## Use VAR to extrapolate the trend and extract the residuals
+## Use Vector Auto Regression (VAR) to extrapolate the trend and extract the residuals
 After fitting a curve to the trend line, then subtracting the trend, the residuals should show some sort of activity due to the unit impulse of the volcano eruptions.  We should be able to readily visualize the magnitude of increase of CO2 due to volcano eruptions.
 
 I've plotted the residuals with lines at the 25% and 75% quantiles, with the green volcano lines.  The logs are plotted (with an offset to avoid <= 0 and to emphasize positive trends).
@@ -99,7 +103,7 @@ par(op)
 ```
 
 ## Zoom in on the volcano timeframes
-Showing the CO2 Residuals from 1/2 year before until 2 years after the event
+Showing the CO2 Residuals from 1/2 year prior to the eruption until 2 years after the event started.
 
 * The green-bordered cyan boxes show the estimated duration of the event.
 * The 25% and 75% quantiles are shown.
@@ -108,7 +112,7 @@ par(mfrow=c(1,1))
 for (i in 1:length(vol$Name))
 {
 	date.erupted = vol$erupted[i]
-	plot.co2( main= paste("Trend Residuals - ",vol$Name[i]), ylab="CO2 Res",
+	plot( main= paste("Trend Residuals - ",vol$Name[i]), ylab="CO2 Res",
 		x=trend.date, y=trend.res, type="l",
 		xlim=c(date.erupted-0.5, date.erupted+2) )
 	
