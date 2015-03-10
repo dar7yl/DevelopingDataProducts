@@ -1,5 +1,5 @@
 ---
-title: "VolcanoCO2"
+title: "Volcano CO² Preliminary Exploration"
 author: "Daryl Hegyi"
 date: "Friday, March 06, 2015"
 output: 

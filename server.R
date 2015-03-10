@@ -90,7 +90,7 @@ eruptionSelector.widget <- function(name="eruption") {
 	})
 }
 
-cat("Server Logic")
+cat("Server Logic\n")
 #############
 # Server logic
 shinyServer(function(input, output) {

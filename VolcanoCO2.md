@@ -1,4 +1,4 @@
-# VolcanoCO2
+# Volcano CO² Preliminary Exploration
 Daryl Hegyi  
 Friday, March 06, 2015  
 ## The Contribution of Volcanoes to Global Warming.
