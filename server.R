@@ -2,6 +2,8 @@ library(shiny)
 library(scales)
 library(lubridate)
 
+cat("Starting up\n")
+
 #load up the CO2 dataset
 co2 <- read.table("./data/co2_mm_mlo.txt", header=TRUE, quote="\"", na.strings = "-99.99")
 names(co2)<-c("year", "month", "decimal_date", "average", "interpolated", "trend", "numdays")
@@ -52,6 +54,12 @@ plot.theFirst<- function() {
 	lines.co2(y=co2$trend, type="l", col="black")
 }
 
+plot.theSecond <- function() {
+	plot.co2( main="Trend Residuals",  ylab="CO2 Res",
+				 x=trend.date, y=trend.res, type="l")
+	abline(h=trend.q[c(2,4)]);
+}
+
 plot.eruption <- function(eruption, prior=0.5, after=2.0)
 # plots the trend residuals from the period prior to and after the event
 {
@@ -60,7 +68,7 @@ plot.eruption <- function(eruption, prior=0.5, after=2.0)
 	end.date = date.erupted+after
 	range = (trend.date>=start.date) & (trend.date<=end.date)
 	
-	plot( main= paste("Trend Residuals - ",vol$Name[eruption]), ylab="CO2 Res (ppm)",
+	plot( main= paste(vol$Name[eruption], " - Trend Residuals"), ylab="CO2 Res (ppm)",
 			x=trend.date[range], y=trend.res[range], type="l",
 			xlim=c(start.date, end.date) )
 	
@@ -78,9 +86,11 @@ eruptionSelector.widget <- function(name="eruption") {
 	renderUI({
 		selectInput(name, "Choose a Volcanic Eruption", 
 						nurf.names(vol$Name), selected = 1, 
-						multiple = FALSE, selectize = FALSE)
+						multiple = FALSE, selectize = TRUE)
 	})
 }
+
+cat("Server Logic")
 #############
 # Server logic
 shinyServer(function(input, output) {
@@ -89,18 +99,23 @@ shinyServer(function(input, output) {
 # 		summary(co2)
 # 	})
 	
-	output$eruptionSelector <- eruptionSelector.widget();
+	output$eruptionSelector <- eruptionSelector.widget()
 	
-	output$theFirst <- renderPlot({
-		plot.theFirst()
-	})
-	
-	output$e <- renderText(input$eruption) 
-
-#	e <- input$eruption
 	output$eruption <- renderPlot({
 		e <- as.numeric(input$eruption)
+		if (length(e)==0) e=1
+		if (e==0) e=1
+		cat("render eruption plot [",e,"]-",vol$Name[e],"\n")
 		plot.eruption(e)
 	})
 	
+	output$theFirst <- renderPlot({
+		cat("Plot the first\n")
+		plot.theFirst()
+	})
+	
+	output$theSecond <- renderPlot({
+		cat("Plot the second\n")
+		plot.theSecond()
+	})
 })
