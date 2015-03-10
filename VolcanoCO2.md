@@ -77,7 +77,7 @@ lines.co2<- function(...) {lines(x=co2$decimal_date, ...)}
 ** green lines are the volcano eruptions.
 ![](VolcanoCO2_files/figure-html/FirstPlot-1.png) 
 
-## Use Vector Auto Regression (VAR) to extrapolate the trend and extract the residuals
+## Using Vector Auto Regression (VAR) to extrapolate the trend and extract the residuals
 After fitting a curve to the trend line, then subtracting the trend, the residuals should show some sort of activity due to the unit impulse of the volcano eruptions.  We should be able to readily visualize the magnitude of increase of CO2 due to volcano eruptions.
 
 I've plotted the residuals with lines at the 25% and 75% quantiles, with the green volcano lines.  The logs are plotted (with an offset to avoid <= 0 and to emphasize positive trends).
