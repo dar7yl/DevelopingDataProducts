@@ -14,7 +14,7 @@ I set out to do this because many global warming deniers were claiming that volc
 ```{r Setup, echo=FALSE, results=F}
 library(scales)
 library(lubridate)
-library(pspline)
+#library(pspline)
 ```
 * CO2 data: <http://www.esrl.noaa.gov/gmd/ccgg/trends/#mlo_full> copied to ./data/ on Mar 5, 2015.
 

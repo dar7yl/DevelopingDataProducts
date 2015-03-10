@@ -8,9 +8,12 @@ shinyUI(fluidPage(
 			p("Rarin' to go..."),
 			actionButton("doit_action", label = "Doit"),
 			hr(),
-			selectInput("eruption", "Choose a Volcanic Eruption", 
-							nurf.names(vol$Name), selected = 1, 
-							multiple = FALSE, selectize = FALSE)
+			
+			uiOutput("eruptionSelector")
+			
+# 			selectInput("eruption2", "Choose a Volcanic Eruption", 
+# 							nurf.names(vol$Name), selected = 1, 
+# 							multiple = FALSE, selectize = FALSE)
 #			"You chose: ", textOutput("e")
 			),
 			

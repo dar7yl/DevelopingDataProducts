@@ -22,7 +22,7 @@ vol$erupted <- decimal_date(as.Date(vol$Eruption_date))
 vol$duration <- decimal_date(as.Date(vol$EndEruption_date)) - vol$erupted
 vol$duration[vol$duration==0] = .01 #if no duration set, default to one percent of a year (about 3.5 days)
 
-# do some heave VAR - Vector Auto Regression on the trend
+# do some heavy VAR - Vector Auto Regression on the trend
 
 library(vars)
 
@@ -73,12 +73,23 @@ plot.eruption <- function(eruption, prior=0.5, after=2.0)
 nurf.names <- function(vect) {
 	setNames( seq(1, length(vect)), vect)
 }
+
+eruptionSelector.widget <- function(name="eruption") {
+	renderUI({
+		selectInput(name, "Choose a Volcanic Eruption", 
+						nurf.names(vol$Name), selected = 1, 
+						multiple = FALSE, selectize = FALSE)
+	})
+}
+#############
 # Server logic
 shinyServer(function(input, output) {
 	
 # 	output$co2_summary <- renderTable({ 
 # 		summary(co2)
 # 	})
+	
+	output$eruptionSelector <- eruptionSelector.widget();
 	
 	output$theFirst <- renderPlot({
 		plot.theFirst()
