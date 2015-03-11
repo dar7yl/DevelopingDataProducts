@@ -1,8 +1,8 @@
 library(shiny)
 library(scales)
 library(lubridate)
-
-cat("Starting up\n")
+library(jsonlite)
+#cat("Starting up\n")
 
 #load up the CO2 dataset
 co2 <- read.table("./data/co2_mm_mlo.txt", header=TRUE, quote="\"", na.strings = "-99.99")
@@ -35,28 +35,29 @@ trend.res <- var.co2$varresult$trend$residuals
 trend.q<-quantile(trend.res)
 
 # Set up plot functions.
-abline.volcanos<- function(vol.col="green",...) 
+plot.volcanos<- function(vol.col="green", ..., text.y=0) 
 # adds a line at the volcano location
 { 
 	abline(v=vol$erupted, col=vol.col)
+	text(vol$erupted, text.y, vol$Name, cex=0.86, pos=3, srt=45)
 }
 
-plot.co2<- function(x=co2$decimal_date,...) {
+plot.co2<- function(x=co2$decimal_date, ..., text.y=0) {
 	plot(x, xlab="Date", ...); 
-	abline.volcanos(...)
+	plot.volcanos(..., text.y=text.y)
 }
 lines.co2<- function(...) {lines(x=co2$decimal_date, ...)}
 
 # Initial plot
 plot.theFirst<- function() {
 	plot.co2(y=co2$average, type="l",  main="Average Monthly CO2 at Mauna Loa", 
-			ylab="CO2 (ppm)", col="blue")
+			ylab="CO2 (ppm)", col="blue", text.y=315)
 	lines.co2(y=co2$trend, type="l", col="black")
 }
 
 plot.theSecond <- function() {
 	plot.co2( main="Trend Residuals",  ylab="CO2 Res",
-				 x=trend.date, y=trend.res, type="l")
+				 x=trend.date, y=trend.res, type="l", text.y=-0.8)
 	abline(h=trend.q[c(2,4)]);
 }
 
@@ -78,44 +79,49 @@ plot.eruption <- function(eruption, prior=0.5, after=2.0)
 	abline(h=trend.q[c(2,4)]); # plot the 25% and 75% quantiles
 }
 
-nurf.names <- function(vect) {
-	setNames( seq(1, length(vect)), vect)
-}
+nurf.names <- function(vect) { setNames( seq(1, length(vect)), vect) }
 
-eruptionSelector.widget <- function(name="eruption") {
+eruptionSelector.widget <- function(name="selectEruption") {
 	renderUI({
 		selectInput(name, "Choose a Volcanic Eruption", 
 						nurf.names(vol$Name), selected = 1, 
-						multiple = FALSE, selectize = TRUE)
+						multiple = FALSE, selectize = FALSE)
 	})
 }
 
-cat("Server Logic\n")
+#cat("Server Logic\n")
 #############
 # Server logic
-shinyServer(function(input, output) {
+shinyServer(function(input, output, session) {
 	
 # 	output$co2_summary <- renderTable({ 
 # 		summary(co2)
 # 	})
 	
+#	updateSelectizeInput(session, 'selectEruption', choices = nurf.names(vol$Names), server = TRUE)
+	
 	output$eruptionSelector <- eruptionSelector.widget()
 	
+	output$volcanoNames <- renderText(toJSON(vol$Name))
+	
 	output$eruption <- renderPlot({
-		e <- as.numeric(input$eruption)
-		if (length(e)==0) e=1
-		if (e==0) e=1
-		cat("render eruption plot [",e,"]-",vol$Name[e],"\n")
-		plot.eruption(e)
+#		cat("in render plot\n")
+		e <- as.integer(input$selectEruption)
+		try( silent=TRUE, #can't shake Error in if (e > 0) { : argument is of length zero
+			if (e>0) {
+#				cat("render eruption plot [",e,"]-",vol$Name[e],"\n")
+				plot.eruption(e)
+			}
+		)
 	})
 	
 	output$theFirst <- renderPlot({
-		cat("Plot the first\n")
+#		cat("Plot the first\n")
 		plot.theFirst()
 	})
 	
 	output$theSecond <- renderPlot({
-		cat("Plot the second\n")
+#		cat("Plot the second\n")
 		plot.theSecond()
 	})
 })

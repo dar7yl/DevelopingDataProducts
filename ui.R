@@ -1,20 +1,42 @@
 library(shiny)
+library(jsonlite)
+
+unnurf.names <- function(blob) { vect=fromJSON(blob); setNames( seq(1, length(vect)), vect) }
 
 shinyUI( fluidPage(
-	titlePanel("Volcano CO² Explorer"),
+	titlePanel("CO² Volcano Explorer"),
 
+	sidebarLayout(
+		sidebarPanel(
+			p("Many global warming deniers are claiming that volcanic eruptions spewed so much CO2 that it completely dominated the climate, and man's influence was negligible.  
+			  I wanted to explore the impact of volcanos on the CO2 record, to see if volcanos were indeed significant."
+			),
+			p(" Volcanos: ", uiOutput("volcanoNames") ),
+#			p(" unnerfed: ", unnerf.names(uiOutput("volcanoNames")) ),
+			p("fin."),
+			p("To get more information about the data, look at the preliminary data exploration: ", 
+			  a(href="https://github.com/dar7yl/DevelopingDataProducts/blob/master/VolcanoCO2.md", target="_blank", "VolcanoCO2.md")
+			)
+		),
+		mainPanel(
+			div(plotOutput("theFirst", width="90%"), height="150"),
+			div(plotOutput("theSecond", width="90%"))
+		)
+	),
 	
 	sidebarLayout(
 		sidebarPanel(
 			p("We can examine one of the eruptions more closely.  Look for increased CO2 activity in the residuals after the volcano"),
+
+# 			selectInput("selectEruption", "Select a Volcanic Eruption", 
+# 				choices = NULL, selected = 1, multiple = FALSE),
+
 			uiOutput("eruptionSelector"),
-			p("To get more information about the data, look at the data exploration: ", 
-			  a(href="https://github.com/dar7yl/DevelopingDataProducts/blob/master/VolcanoCO2.md", target="_blank", "VolcanoCO2.md"))
+
+			p("You can zoom in on Volcano events to see if there is any significance in the residuals.")
 		),
 		mainPanel(
-			plotOutput("eruption"),
-			div(plotOutput("theFirst", width="100%")),
-			div(plotOutput("theSecond", width="100%"))
+			plotOutput("eruption")
 		)
 	)
 ))
