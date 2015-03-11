@@ -23,7 +23,17 @@ shinyUI( fluidPage(
 			div(plotOutput("theSecond", width="90%"))
 		)
 	),
-	
+
+	sidebarLayout(
+		sidebarPanel( h3("Examine Residuals"),
+				checkboxInput("residualLog", label = "Logarithm", value = FALSE),
+				numericInput("residualOffset", label="Log offset", value=1)
+		),
+		mainPanel(
+			div(plotOutput("residualsPlot", width="90%"), height="150")
+		)
+	),
+
 	sidebarLayout(
 		sidebarPanel(
 			p("We can examine one of the eruptions more closely.  Look for increased CO2 activity in the residuals after the volcano"),

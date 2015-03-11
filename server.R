@@ -1,7 +1,7 @@
 library(shiny)
 library(scales)
 library(lubridate)
-library(jsonlite)
+#library(jsonlite)
 #cat("Starting up\n")
 
 #load up the CO2 dataset
@@ -55,10 +55,17 @@ plot.theFirst<- function() {
 	lines.co2(y=co2$trend, type="l", col="black")
 }
 
-plot.theSecond <- function() {
-	plot.co2( main="Trend Residuals",  ylab="CO2 Res",
-				 x=trend.date, y=trend.res, type="l", text.y=-0.8)
-	abline(h=trend.q[c(2,4)]);
+plot.residuals <- function(log.y, offset=0) {
+	if (!log.y) {
+		plot.co2( main="Trend Residuals",  ylab="CO2 Res",
+					 x=trend.date, y=trend.res, type="l", text.y=-0.8)
+		abline(h=trend.q[c(2,4)]);
+	}
+	else {
+		plot.co2( main="Trend Residuals",  ylab="log(CO2 Res)",
+					 x=trend.date, y=log(trend.res+offset), type="l", text.y=-0.8)
+		abline(h=log(trend.q+offset)[c(2,4)]);
+	}
 }
 
 plot.eruption <- function(eruption, prior=0.5, after=2.0)
@@ -102,12 +109,12 @@ shinyServer(function(input, output, session) {
 	
 	output$eruptionSelector <- eruptionSelector.widget()
 	
-	output$volcanoNames <- renderText(toJSON(vol$Name))
+#	output$volcanoNames <- renderText(toJSON(vol$Name))
 	
 	output$eruption <- renderPlot({
 #		cat("in render plot\n")
 		e <- as.integer(input$selectEruption)
-		try( silent=TRUE, #can't shake Error in if (e > 0) { : argument is of length zero
+		try( silent=TRUE, #can't shake: Error in if (e > 0) { : argument is of length zero
 			if (e>0) {
 #				cat("render eruption plot [",e,"]-",vol$Name[e],"\n")
 				plot.eruption(e)
@@ -120,8 +127,8 @@ shinyServer(function(input, output, session) {
 		plot.theFirst()
 	})
 	
-	output$theSecond <- renderPlot({
+	output$residualsPlot <- renderPlot({
 #		cat("Plot the second\n")
-		plot.theSecond()
+		plot.residuals(input$residualLog, input$residualOffset)
 	})
 })
