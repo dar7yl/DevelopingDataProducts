@@ -1,7 +1,7 @@
 ---
 title: "Volcano CO² Preliminary Exploration"
 author: "Daryl Hegyi"
-date: "Friday, March 06, 2015"
+date: "Thursday, March 12, 2015"
 output: 
   html_document:
     keep_md: true
@@ -14,7 +14,8 @@ I set out to do this because many global warming deniers were claiming that volc
 ```{r Setup, echo=FALSE, results=F}
 library(scales)
 library(lubridate)
-#library(pspline)
+library(vars)
+
 ```
 * CO2 data: <http://www.esrl.noaa.gov/gmd/ccgg/trends/#mlo_full> copied to ./data/ on Mar 5, 2015.
 
@@ -40,25 +41,46 @@ vol <- read.csv("./data/Volcanos.csv", na.strings = "NA", colClasses=vol.Classes
 
 vol.na<-is.na(vol$EndEruption_date)
 vol$EndEruption_date[vol.na] = vol$Eruption_date[vol.na]
+rm(vol.na)
 
 vol$erupted <- decimal_date(as.Date(vol$Eruption_date))
 vol$duration <- decimal_date(as.Date(vol$EndEruption_date)) - vol$erupted
 vol$duration[vol$duration==0] = .01 #if no duration set, default to one percent of a year (about 3.5 days)
 
+## fix up the severity
+vol$Severity[is.na(vol$Severity)] = 1
+
+head(vol)
+```
+
+* merge volcano events into co2 data.
+```{r VolcanoEvents, echo=FALSE}
+co2$volcano.events <- rep(0, nrow(co2))
+
+for (c in 1:(nrow(co2)-1))
+{
+	for ( v in 1:nrow(vol) )
+	{
+		if ( vol$erupted[v] >= co2$decimal_date[c]
+			  && vol$erupted[v] < co2$decimal_date[c+1] )
+			co2$volcano.events[c] = co2$volcano.events[c]  + vol$Severity[v]
+	}
+}
 ```
 
 * Set up plot functions.
-```{r PlotFunctions}
+```{r PlotFunctions, echo=FALSE}
 plot.volcanos<- function(vol.col="green",..., text.y="bottom") 
 { 
 	abline(v=vol$erupted, col=vol.col)
-	text(vol$erupted, text.y, vol$Name, cex=0.86, pos=3, srt=45)
+	if (!is.na(text.y))
+		text(vol$erupted, text.y, vol$Name, cex=0.86, pos=3, srt=45)
 }
 
-plot.co2<- function(x=co2$decimal_date,...) 
+plot.co2<- function(x=co2$decimal_date,...,text.y) 
 {
 	plot(x, xlab="Date", ...); 
-	plot.volcanos(...)
+	plot.volcanos(...,text.y=text.y)
 }
 lines.co2<- function(...) {lines(x=co2$decimal_date, ...)}
 ```
@@ -68,7 +90,7 @@ lines.co2<- function(...) {lines(x=co2$decimal_date, ...)}
 ** black is the trend
 ** green lines are the volcano eruptions.
 ```{r FirstPlot, echo=FALSE}
-plot.co2(y=co2$average, type="l",  main="Average Monthly CO2 at Mauna Loa", 
+plot.co2(y=co2$average, type="l",  main="Average Monthly CO2 at Mauna Loa", text.y=320,
 					  ylab="CO2 (ppm)", col="blue")
 
 lines.co2(y=co2$trend, type="l", col="black")
@@ -80,9 +102,16 @@ After fitting a curve to the trend line, then subtracting the trend, the residua
 
 I've plotted the residuals with lines at the 25% and 75% quantiles, with the green volcano lines.  The logs are plotted (with an offset to avoid <= 0 and to emphasize positive trends).
 ```{r vars, echo=FALSE	}
-library(vars)
 
-var.co2 <- VAR(co2[,c("decimal_date", "trend")], p = 2, type = "const", )
+co2.var.subset <- co2[,c("decimal_date", "month", "volcano.events", "trend")]
+
+co2.var.type <- c("const", "trend", "both", "none")
+co2.var.select <- VARselect(co2.var.subset, type="both")
+co2.var.select
+
+var.co2 <- VAR(co2.var.subset, p = co2.var.select$selection["AIC(n)"], type = "both" )
+var.co2
+
 trend.date <- var.co2$varresult$decimal_date$fitted.values
 trend.fitted <- var.co2$varresult$trend$fitted.values
 trend.res <- var.co2$varresult$trend$residuals
@@ -91,11 +120,11 @@ trend.q<-quantile(trend.res)
 op<-par(mfrow=c(2,2))
 plot(var.co2)
 par(mfrow=c(2,1))
-plot.co2( main="Trend Residuals",  ylab="CO2 Res",
+plot.co2( main="Trend Residuals",  ylab="CO2 Res",  text.y=320,
 	x=trend.date, y=trend.res, type="l")
 abline(h=trend.q[c(2,4)]);
 
-plot.co2( main="log(Trend Residuals)",  ylab="log(CO2 Res)",
+plot.co2( main="log(Trend Residuals)",  ylab="log(CO2 Res)",  text.y=NA,
 	x=var.co2$varresult$decimal_date$fitted.values, 
 	y=log(var.co2$varresult$trend$residuals+2), type="l")
 
@@ -110,8 +139,8 @@ Showing the CO2 Residuals from 1/2 year prior to the eruption until 2 years afte
 
 * The green-bordered cyan boxes show the estimated duration of the event.
 * The 25% and 75% quantiles are shown.
-```{r ZoomVolcanos}
-op<-par(mfrow=c(2,1), mar=c(2,4,1,0.5))
+```{r ZoomVolcanos, echo=FALSE}
+op<-par(mfrow=c(3,1), mar=c(2,4,1,0.5))
 for (i in 1:length(vol$Name))
 {
 	date.erupted = vol$erupted[i]
@@ -122,7 +151,6 @@ for (i in 1:length(vol$Name))
 	trend.range = (trend.date>=start.date) & (trend.date<=end.date)
 	
 	
-	
 	plot( main=paste("Trend - ",vol$Name[i]), ylab="CO2 (ppm)",
 			x=co2$decimal_date[co2.range], y=co2$trend[co2.range], type="l", col="blue" )
 
@@ -131,8 +159,16 @@ for (i in 1:length(vol$Name))
 
 	lines( x=trend.date[trend.range], y=trend.fitted[trend.range], col="red")
 	
-	legend("bottomright", inset=.05, title="trend lines", lty = 1, cex=0.6,
+	legend("bottomright", inset=.05, title="trend lines", lty = 1, cex=0.8,
 			 legend = c("actual","fitted"), col=c("blue", "red") )
+
+	plot( main= paste("Volcano events fit - ",vol$Name[i]), ylab="CO2",
+		x=trend.date[trend.range], 
+		y=var.co2$varresult$volcano.events$fitted.values[trend.range], 
+		type="l", xlim=c(start.date, end.date) )
+	
+	rect( vol$erupted[i], -1, vol$erupted[i]+vol$duration[i], 1,
+		   col=alpha("cyan", .1), border="green")
 	
 	plot( main= paste("Residuals - ",vol$Name[i]), ylab="CO2 Res",
 		x=trend.date[trend.range], y=trend.res[trend.range], type="l",
@@ -142,6 +178,9 @@ for (i in 1:length(vol$Name))
 		   col=alpha("cyan", .1), border="green")
 	
 	abline(h=trend.q[c(2,4)]);
+	
+	
+
 }
 par(op)
 ```
