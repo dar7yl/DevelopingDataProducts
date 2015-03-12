@@ -49,9 +49,10 @@ vol$duration[vol$duration==0] = .01 #if no duration set, default to one percent 
 
 * Set up plot functions.
 ```{r PlotFunctions}
-plot.volcanos<- function(vol.col="green",...) 
+plot.volcanos<- function(vol.col="green",..., text.y="bottom") 
 { 
 	abline(v=vol$erupted, col=vol.col)
+	text(vol$erupted, text.y, vol$Name, cex=0.86, pos=3, srt=45)
 }
 
 plot.co2<- function(x=co2$decimal_date,...) 
@@ -71,6 +72,7 @@ plot.co2(y=co2$average, type="l",  main="Average Monthly CO2 at Mauna Loa",
 					  ylab="CO2 (ppm)", col="blue")
 
 lines.co2(y=co2$trend, type="l", col="black")
+
 ```
 
 ## Using Vector Auto Regression (VAR) to extrapolate the trend and extract the residuals
@@ -82,6 +84,7 @@ library(vars)
 
 var.co2 <- VAR(co2[,c("decimal_date", "trend")], p = 2, type = "const", )
 trend.date <- var.co2$varresult$decimal_date$fitted.values
+trend.fitted <- var.co2$varresult$trend$fitted.values
 trend.res <- var.co2$varresult$trend$residuals
 trend.q<-quantile(trend.res)
 
@@ -108,19 +111,39 @@ Showing the CO2 Residuals from 1/2 year prior to the eruption until 2 years afte
 * The green-bordered cyan boxes show the estimated duration of the event.
 * The 25% and 75% quantiles are shown.
 ```{r ZoomVolcanos}
-par(mfrow=c(1,1))
+op<-par(mfrow=c(2,1), mar=c(2,4,1,0.5))
 for (i in 1:length(vol$Name))
 {
 	date.erupted = vol$erupted[i]
-	plot( main= paste("Trend Residuals - ",vol$Name[i]), ylab="CO2 Res",
-		x=trend.date, y=trend.res, type="l",
-		xlim=c(date.erupted-0.5, date.erupted+2) )
+	start.date = date.erupted-0.5
+	end.date = date.erupted+2
+	
+	co2.range = (co2$decimal_date>=start.date) & (co2$decimal_date<=end.date)
+	trend.range = (trend.date>=start.date) & (trend.date<=end.date)
+	
+	
+	
+	plot( main=paste("Trend - ",vol$Name[i]), ylab="CO2 (ppm)",
+			x=co2$decimal_date[co2.range], y=co2$trend[co2.range], type="l", col="blue" )
+
+	rect( vol$erupted[i], 300, vol$erupted[i]+vol$duration[i], 400, 
+		   col=alpha("cyan", .1), border="green")
+
+	lines( x=trend.date[trend.range], y=trend.fitted[trend.range], col="red")
+	
+	legend("bottomright", inset=.05, title="trend lines", lty = 1, cex=0.6,
+			 legend = c("actual","fitted"), col=c("blue", "red") )
+	
+	plot( main= paste("Residuals - ",vol$Name[i]), ylab="CO2 Res",
+		x=trend.date[trend.range], y=trend.res[trend.range], type="l",
+		xlim=c(start.date, end.date) )
 	
 	rect( vol$erupted[i], -1, vol$erupted[i]+vol$duration[i], 1,
 		   col=alpha("cyan", .1), border="green")
 	
 	abline(h=trend.q[c(2,4)]);
 }
+par(op)
 ```
 
 ## Summary

@@ -31,6 +31,7 @@ library(vars)
 var.co2 <- VAR(co2[,c("decimal_date", "trend")], p = 2, type = "const", )
 
 trend.date <- var.co2$varresult$decimal_date$fitted.values
+trend.fitted <- var.co2$varresult$trend$fitted.values
 trend.res <- var.co2$varresult$trend$residuals
 trend.q<-quantile(trend.res)
 
@@ -53,9 +54,12 @@ plot.theFirst<- function() {
 	plot.co2(y=co2$average, type="l",  main="Average Monthly CO2 at Mauna Loa", 
 			ylab="CO2 (ppm)", col="blue", text.y=315)
 	lines.co2(y=co2$trend, type="l", col="black")
+	lines(x=trend.date, y=trend.fitted, type="l", col="red")
 }
 
 plot.residuals <- function(log.y, offset=0) {
+	op<-par(mfrow=c(2,1))
+	
 	if (!log.y) {
 		plot.co2( main="Trend Residuals",  ylab="CO2 Res",
 					 x=trend.date, y=trend.res, type="l", text.y=-0.8)
@@ -66,6 +70,7 @@ plot.residuals <- function(log.y, offset=0) {
 					 x=trend.date, y=log(trend.res+offset), type="l", text.y=-0.8)
 		abline(h=log(trend.q+offset)[c(2,4)]);
 	}
+	par(op)
 }
 
 plot.eruption <- function(eruption, prior=0.5, after=2.0)
@@ -101,12 +106,16 @@ eruptionSelector.widget <- function(name="selectEruption") {
 # Server logic
 shinyServer(function(input, output, session) {
 	
-# 	output$co2_summary <- renderTable({ 
-# 		summary(co2)
-# 	})
+	var.co2 <- var.co2  # each session gets a copy of the initial variance.
 	
-#	updateSelectizeInput(session, 'selectEruption', choices = nurf.names(vol$Names), server = TRUE)
-	
+	doRegression <- function(p=2, type= "const") 
+	{
+		var.co2 <<- VAR(co2[,c("decimal_date", "trend")], p = p, type = "const", )
+		
+		trend.date <- var.co2$varresult$decimal_date$fitted.values
+		trend.res <- var.co2$varresult$trend$residuals
+		trend.q<-quantile(trend.res)
+	}
 	output$eruptionSelector <- eruptionSelector.widget()
 	
 #	output$volcanoNames <- renderText(toJSON(vol$Name))
@@ -120,6 +129,14 @@ shinyServer(function(input, output, session) {
 				plot.eruption(e)
 			}
 		)
+	})
+
+	output$regressionResults <- renderText({
+		input$doRegression
+		isolate({
+			doRegression()
+			
+		})
 	})
 	
 	output$theFirst <- renderPlot({
