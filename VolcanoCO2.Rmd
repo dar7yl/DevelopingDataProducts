@@ -11,18 +11,27 @@ Given a continuous long-duration record of CO2 at a single location (Mauna Loa),
 
 I set out to do this because many global warming deniers were claiming that volcanic eruptions spewed so much CO2 that it completely dominated the climate, and man's influence was negligible.  I wanted to explore the impact of volcanos on the CO2 record, to see if volcanos were indeed significant.
 
-```{r Setup, echo=FALSE, results=F}
-library(scales)
-library(lubridate)
-library(vars)
+Please note that this is a work-product, and in no way constitutes a final form,
+nor claim not to bore you with dry statistics and droll commentary.
 
+```{r Setup, echo=TRUE, results='hide'}
+library(scales, quietly=TRUE, warn.conflicts=FALSE)
+library(lubridate, quietly=TRUE, warn.conflicts=FALSE)
+library(vars, quietly=TRUE, warn.conflicts=FALSE)
+options(width=75)
 ```
+## About the Data
+
 * CO2 data: <http://www.esrl.noaa.gov/gmd/ccgg/trends/#mlo_full> copied to ./data/ on Mar 5, 2015.
 
   The carbon dioxide data, measured as the mole fraction in dry air, on Mauna Loa constitute the longest record of direct measurements of CO2 in the atmosphere. They were started by C. David Keeling of the Scripps Institution of Oceanography in March of 1958 at a facility of the National Oceanic and Atmospheric Administration [Keeling, 1976]. NOAA started its own CO2 measurements in May of 1974, and they have run in parallel with those made by Scripps since then [Thoning, 1989]. The trend value represents the seasonally corrected data.
 
 Data are reported as a dry mole fraction defined as the number of molecules of carbon dioxide divided by the number of molecules of dry air multiplied by one million (ppm). 
-```{r ReadData}
+
+[How the data is measured and recorded.](http://www.esrl.noaa.gov/gmd/ccgg/about/co2_measurements.html)
+
+### Quick view of the data:
+```{r ReadData, echo=FALSE}
 co2 <- read.table("./data/co2_mm_mlo.txt", header=TRUE, quote="\"", na.strings = "-99.99")
 names(co2)<-c("year", "month", "decimal_date", "average", "interpolated", "trend", "numdays")
 
@@ -30,11 +39,14 @@ names(co2)<-c("year", "month", "decimal_date", "average", "interpolated", "trend
 co2.na<-is.na(co2$average)
 co2$average[co2.na] <- co2$interpolated[co2.na]
 rm(co2.na)
+
+head(co2, 3)
+tail(co2, 3)
 summary(co2)
 ```
 
-* Loading up the Volcanos dataset
-```{r LoadVolcanos}
+* Loading the Volcanos dataset
+```{r LoadVolcanos, echo=FALSE}
 
 vol.Classes <- c( "factor", "Date", "Date", "numeric")
 vol <- read.csv("./data/Volcanos.csv", na.strings = "NA", colClasses=vol.Classes)
@@ -54,6 +66,8 @@ head(vol)
 ```
 
 * merge volcano events into co2 data.
+
+The volcano events are added to a vector (initially set to 0's) alongside the trend.
 ```{r VolcanoEvents, echo=FALSE}
 co2$volcano.events <- rep(0, nrow(co2))
 
@@ -86,40 +100,49 @@ lines.co2<- function(...) {lines(x=co2$decimal_date, ...)}
 ```
 # Initial plot
 
-** blue is the monthly average
-** black is the trend
-** green lines are the volcano eruptions.
+First look at the data.  We see a rising curve, with a definite seasonal aspect.  The guys at NOAA have conveniently seasonally adjusted the data.  I have included lines (green) for some major volcano events.
 ```{r FirstPlot, echo=FALSE}
 plot.co2(y=co2$average, type="l",  main="Average Monthly CO2 at Mauna Loa", text.y=320,
-					  ylab="CO2 (ppm)", col="blue")
+					  ylab="CO2 (ppm)", col="red")
 
-lines.co2(y=co2$trend, type="l", col="black")
+lines.co2(y=co2$trend, type="l", col="blue")
 
+legend("topleft", inset=.05, title="CO2 Readings", lty = 1, cex=0.8,
+		 legend = c("seasonal average","adjusted trend", "volcano events"), 
+		 col=c("red", "blue", "green") )
 ```
 
-## Using Vector Auto Regression (VAR) to extrapolate the trend and extract the residuals
-After fitting a curve to the trend line, then subtracting the trend, the residuals should show some sort of activity due to the unit impulse of the volcano eruptions.  We should be able to readily visualize the magnitude of increase of CO2 due to volcano eruptions.
+## Using Vector Auto Regression (VAR)
 
-I've plotted the residuals with lines at the 25% and 75% quantiles, with the green volcano lines.  The logs are plotted (with an offset to avoid <= 0 and to emphasize positive trends).
-```{r vars, echo=FALSE	}
+This is heavy-duty statistics, which fortunately, does all the heavy lifting.  
+I'm using the decimal date, the month, and the volcano events to predict the trend.  
+I can show you the results, but like making sausages, it would probably make you queasy.
+
+```{r vars, echo=FALSE, results='hide'	}
 
 co2.var.subset <- co2[,c("decimal_date", "month", "volcano.events", "trend")]
 
 co2.var.type <- c("const", "trend", "both", "none")
 co2.var.select <- VARselect(co2.var.subset, type="both")
-co2.var.select
+#co2.var.select
 
 var.co2 <- VAR(co2.var.subset, p = co2.var.select$selection["AIC(n)"], type = "both" )
-var.co2
+#var.co2
+#op<-par(mfrow=c(2,2))
+#plot(var.co2)
+
+```
+## Plot the Residuals
+
+In order to see if there is any information left, I've plotted the residuals and the logarithm of the residuals with lines at the 25% and 75% quantiles, along with the green volcano lines.  The logs are plotted (with an offset to avoid <= 0)  to emphasize positive trends).
+```{r PlotResiduals, echo=FALSE}
 
 trend.date <- var.co2$varresult$decimal_date$fitted.values
 trend.fitted <- var.co2$varresult$trend$fitted.values
 trend.res <- var.co2$varresult$trend$residuals
 trend.q<-quantile(trend.res)
 
-op<-par(mfrow=c(2,2))
-plot(var.co2)
-par(mfrow=c(2,1))
+op<-par(mfrow=c(2,1))
 plot.co2( main="Trend Residuals",  ylab="CO2 Res",  text.y=320,
 	x=trend.date, y=trend.res, type="l")
 abline(h=trend.q[c(2,4)]);
@@ -135,7 +158,7 @@ par(op)
 ```
 
 ## Zoom in on the volcano timeframes
-Showing the CO2 Residuals from 1/2 year prior to the eruption until 2 years after the event started.
+Showing the model fit for the eruption events and CO2 Residuals from 1/2 year prior to the eruption until 2 years after the event started.
 
 * The green-bordered cyan boxes show the estimated duration of the event.
 * The 25% and 75% quantiles are shown.
@@ -149,7 +172,6 @@ for (i in 1:length(vol$Name))
 	
 	co2.range = (co2$decimal_date>=start.date) & (co2$decimal_date<=end.date)
 	trend.range = (trend.date>=start.date) & (trend.date<=end.date)
-	
 	
 	plot( main=paste("Trend - ",vol$Name[i]), ylab="CO2 (ppm)",
 			x=co2$decimal_date[co2.range], y=co2$trend[co2.range], type="l", col="blue" )
@@ -178,12 +200,14 @@ for (i in 1:length(vol$Name))
 		   col=alpha("cyan", .1), border="green")
 	
 	abline(h=trend.q[c(2,4)]);
-	
-	
-
 }
 par(op)
 ```
 
 ## Summary
-There does seem to be some activity due to the volcanic eruptions, but the overall effect is suble, and more research is necessary to extract some sort of quantitative information from the slight signal.  Whether it can be isolated to statistical significance remains to be discovered.
+
+There does seem to be some activity due to the volcanic eruptions.  
+This is especially visible in the volcano events fit for Mt. St. Helens.  
+The overall effect is suble, and more research is necessary to extract some sort of quantitative information from the slight signal.  Whether it can be isolated to statistical significance remains to be discovered.
+
+![donations humbly accepted](climate-model-unsourced-donations.png)

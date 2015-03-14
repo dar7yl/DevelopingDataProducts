@@ -1,26 +1,33 @@
 library(shiny)
 #library(jsonlite)
 
-unnurf.names <- function(blob) { vect=fromJSON(blob); setNames( seq(1, length(vect)), vect) }
-
 shinyUI( fluidPage(
 	titlePanel("CO² Volcano Explorer"),
+	p("For more information, see preliminary data analysis at ", 
+	  a(href="https://github.com/dar7yl/DevelopingDataProducts/blob/master/VolcanoCO2.md", target="_blank", "GitHub") ),
 
 	sidebarLayout(
 		sidebarPanel(
-			p("Many global warming deniers are claiming that volcanic eruptions spewed so much CO2 that it completely dominated the climate, and man's influence was negligible.  
-			  I wanted to explore the impact of volcanos on the CO2 record, to see if volcanos were indeed significant."
-			),
-#			p(" Volcanos: ", uiOutput("volcanoNames") ),
-#			p(" unnerfed: ", unnerf.names(uiOutput("volcanoNames")) ),
-#			p("fin."),
-			p("To get more information about the data, look at the preliminary data exploration: ", 
-			  a(href="https://github.com/dar7yl/DevelopingDataProducts/blob/master/VolcanoCO2.md", target="_blank", "VolcanoCO2.md")
-			)
+				h3("Look at the Data"),
+				p("This is the average monthly readings of CO², taken at the Mauna Loa Observatory in Hawaii between 1958 and 2015."),
+				p("")
 		),
 		mainPanel(
-			div(plotOutput("theFirst", width="90%"), height="150")
-#			div(plotOutput("theSecond", width="90%"))
+			div(plotOutput("theFirst", width="95%"), height="150")
+		)
+	),
+
+	sidebarLayout(
+		sidebarPanel(
+			h3("Examine Volcano Events"),
+			p("Here, we can examine each of the eruptions more closely. Select the name of a volcano to see its eruption. Look for increased CO2 activity in the residuals after the volcano"),
+			
+			uiOutput("eruptionSelector"),
+			
+			p("You can zoom in on Volcano events to see if there is any significance in the residuals.")
+		),
+		mainPanel(
+			plotOutput("eruption")
 		)
 	),
 
@@ -37,6 +44,8 @@ shinyUI( fluidPage(
 
 	sidebarLayout(
 		sidebarPanel( h3("Examine Residuals"),
+				p("Here, you can switch between linear and logarithm plots of the trend residuals, to see if there is any effect that can be observed by switching scales. (spoiler alert: no significant change)"),
+				p("Click the Logarithm button to swap, and enter an offset value to shift the graph"),			
 				checkboxInput("residualLog", label = "Logarithm", value = FALSE),
 				numericInput("residualOffset", label="Log offset", value=1)
 		),
@@ -44,20 +53,5 @@ shinyUI( fluidPage(
 			div(plotOutput("residualsPlot", width="90%"), height="150")
 		)
 	),
-
-	sidebarLayout(
-		sidebarPanel(
-			p("We can examine one of the eruptions more closely.  Look for increased CO2 activity in the residuals after the volcano"),
-
-# 			selectInput("selectEruption", "Select a Volcanic Eruption", 
-# 				choices = NULL, selected = 1, multiple = FALSE),
-
-			uiOutput("eruptionSelector"),
-
-			p("You can zoom in on Volcano events to see if there is any significance in the residuals.")
-		),
-		mainPanel(
-			plotOutput("eruption")
-		)
-	)
+	hr(), p("fin.")
 ))

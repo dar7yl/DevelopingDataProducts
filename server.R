@@ -82,7 +82,7 @@ plot.theFirst<- function() {
 }
 
 plot.residuals <- function(log.y, offset=0) {
-	op<-par(mfrow=c(2,1))
+	op<-par(mfrow=c(1,1))
 	
 	if (!log.y) {
 		plot.co2( main="Trend Residuals",  ylab="CO2 Res",
@@ -90,7 +90,7 @@ plot.residuals <- function(log.y, offset=0) {
 		abline(h=trend.q[c(2,4)]);
 	}
 	else {
-		plot.co2( main="Trend Residuals",  ylab="log(CO2 Res)",
+		plot.co2( main="Trend Residuals",  ylab=paste("log(CO2 Res+",offset,")"),
 					 x=trend.date, y=log(trend.res+offset), type="l", text.y=-0.8)
 		abline(h=log(trend.q+offset)[c(2,4)]);
 	}
@@ -100,19 +100,43 @@ plot.residuals <- function(log.y, offset=0) {
 plot.eruption <- function(eruption, prior=0.5, after=2.0)
 # plots the trend residuals from the period prior to and after the event
 {
+	op<-par(mfrow=c(3,1), mar=c(2,4,1.4,0.5))
 	date.erupted = vol$erupted[eruption]
-	start.date = date.erupted-prior
-	end.date = date.erupted+after
-	range = (trend.date>=start.date) & (trend.date<=end.date)
+	start.date = date.erupted-0.5
+	end.date = date.erupted+2
 	
-	plot( main= paste(vol$Name[eruption], " - Trend Residuals"), ylab="CO2 Res (ppm)",
-			x=trend.date[range], y=trend.res[range], type="l",
-			xlim=c(start.date, end.date) )
+	co2.range = (co2$decimal_date>=start.date) & (co2$decimal_date<=end.date)
+	trend.range = (trend.date>=start.date) & (trend.date<=end.date)
 	
-	rect( date.erupted, -1, date.erupted+vol$duration[eruption], 1,
+	plot( main=paste("Trend - ",vol$Name[eruption]), ylab="CO2 (ppm)",
+			x=co2$decimal_date[co2.range], y=co2$trend[co2.range], type="l", col="blue" )
+	
+	rect( vol$erupted[eruption], 300, vol$erupted[eruption]+vol$duration[eruption], 400, 
 			col=alpha("cyan", .1), border="green")
 	
-	abline(h=trend.q[c(2,4)]); # plot the 25% and 75% quantiles
+	lines( x=trend.date[trend.range], y=trend.fitted[trend.range], col="red")
+	
+	legend("bottomright", inset=.05, title="trend lines", lty = 1, cex=1,
+			 legend = c("actual","fitted"), col=c("blue", "red") )
+	
+	plot( main= paste("Volcano events fit - ",vol$Name[eruption]), ylab="Severity",
+			x=trend.date[trend.range], 
+			y=var.co2$varresult$volcano.events$fitted.values[trend.range], 
+			type="l", xlim=c(start.date, end.date) )
+	
+	rect( vol$erupted[eruption], -1, vol$erupted[eruption]+vol$duration[eruption], 1,
+			col=alpha("cyan", .1), border="green")
+	
+	plot( main= paste("Residuals - ",vol$Name[eruption]), ylab="CO2 Res",
+			x=trend.date[trend.range], y=trend.res[trend.range], type="l",
+			xlim=c(start.date, end.date) )
+	
+	rect( vol$erupted[eruption], -1, vol$erupted[eruption]+vol$duration[eruption], 1,
+			col=alpha("cyan", .1), border="green")
+	
+	abline(h=trend.q[c(2,4)]);
+
+	par(op)
 }
 
 nurf.names <- function(vect) { setNames( seq(1, length(vect)), vect) }
@@ -132,8 +156,9 @@ shinyServer(function(input, output, session) {
 	
 	var.co2 <- var.co2  # each session gets a copy of the initial variance.
 	
-	doRegression <- function(p=2, type= "const") 
+	doRegression <- function(p=2, type= "trend") 
 	{
+		cat("doing regression, p= ", p)
 		var.co2 <<- VAR(co2[,c("decimal_date", "trend")], p = p, type = "const", )
 		
 		trend.date <- var.co2$varresult$decimal_date$fitted.values
