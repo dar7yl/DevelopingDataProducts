@@ -1,3 +1,8 @@
+
+#usage: 
+# SET ROPTS=--no-save --no-environ --no-init-file --no-restore --no-Rconsole 
+# "C:\Program Files\R\R-3.1.2\bin\x64\Rscript.exe" %ROPTS% runShinyApp.R 1> ShinyApp.log 2>&1
+
 library(shiny)
 library(scales)
 library(lubridate)
@@ -24,11 +29,30 @@ vol$erupted <- decimal_date(as.Date(vol$Eruption_date))
 vol$duration <- decimal_date(as.Date(vol$EndEruption_date)) - vol$erupted
 vol$duration[vol$duration==0] = .01 #if no duration set, default to one percent of a year (about 3.5 days)
 
+## fix up the severity
+vol$Severity[is.na(vol$Severity)] = 1
+
+# merge volcano events into co2 table
+co2$volcano.events <- rep(0, nrow(co2))
+for (c in 1:(nrow(co2)-1))
+{
+	for ( v in 1:nrow(vol) )
+	{
+		if ( vol$erupted[v] >= co2$decimal_date[c]
+			  && vol$erupted[v] < co2$decimal_date[c+1] )
+			co2$volcano.events[c] = co2$volcano.events[c]  + vol$Severity[v]
+	}
+}
 # do some heavy VAR - Vector Auto Regression on the trend
 
 library(vars)
+co2.var.subset <- co2[,c("decimal_date", "month", "volcano.events", "trend")]
 
-var.co2 <- VAR(co2[,c("decimal_date", "trend")], p = 2, type = "const", )
+co2.var.type <- c("const", "trend", "both", "none")
+co2.var.select <- VARselect(co2.var.subset, type="both")
+#co2.var.select
+
+var.co2 <- VAR(co2.var.subset, p = co2.var.select$selection["AIC(n)"], type = "both" )
 
 trend.date <- var.co2$varresult$decimal_date$fitted.values
 trend.fitted <- var.co2$varresult$trend$fitted.values
