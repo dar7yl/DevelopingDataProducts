@@ -1,7 +1,7 @@
 ---
 title: "Volcano CO² Preliminary Exploration"
 author: "Daryl Hegyi"
-date: "Thursday, March 12, 2015"
+date: "`r format(Sys.time(), ' %A, %B %d, %Y')`"
 output: 
   html_document:
     keep_md: true
@@ -11,13 +11,21 @@ Given a continuous long-duration record of CO2 at a single location (Mauna Loa),
 
 I set out to do this because many global warming deniers were claiming that volcanic eruptions spewed so much CO2 that it completely dominated the climate, and man's influence was negligible.  I wanted to explore the impact of volcanos on the CO2 record, to see if volcanos were indeed significant.
 
+<a id="Explorer"></a> 
+
+   I have created an interactive Volcano CO² Explorer, which has controls to manipulate the various parameters of the analysis, and to display different portions of the data (especially around volcanos).  
+
+[Click Here to run the Interactive Volcano CO² Explorer](http://d7yl.port0.org:2323)
+
 Please note that this is a work-product, and in no way constitutes a final form,
 nor claim not to bore you with dry statistics and droll commentary.
 
-```{r Setup, echo=TRUE, results='hide'}
+```{r Setup, echo=FALSE, warning=FALSE, results='hide'}
+
 library(scales, quietly=TRUE, warn.conflicts=FALSE)
 library(lubridate, quietly=TRUE, warn.conflicts=FALSE)
-library(vars, quietly=TRUE, warn.conflicts=FALSE)
+
+library(dplyr, quietly=TRUE, warn.conflicts=FALSE)
 options(width=75)
 ```
 ## About the Data
@@ -82,6 +90,52 @@ for (c in 1:(nrow(co2)-1))
 }
 ```
 
+* load energy consumption dataset (if enabled)
+```{r LoadEnergyConsumption, echo=FALSE, eval=FALSE}
+
+mer.Classes <- c( "factor", "integer", "numeric", "factor", "NULL", 'NULL')
+MER_T01_03<-read.csv("./data/MER_T01_03.csv", 
+		sep=",", quote='"', na.strings= 'NotAvailable', colClasses=mer.Classes)
+
+# select only the records from column 4 
+# (FFTCBUS-Total Fossil Fuels Consumption) from the dataset  
+
+MER_T01_03 %>% 
+		mutate( year=YYYYMM %/% 100, month = YYYYMM %% 100) %>% 
+		filter(year>=1958 & Column_Order==4 & month!=13) %>% 
+		select(year, month, Value) -> mer
+
+MER_T01_03 %>% mutate( year=YYYYMM %/% 100, month = YYYYMM %% 100) %>% 
+		filter(year>=1958 & Column_Order==4 & month==13) %>% 
+		select(year, Value) -> mer.x13
+
+summary(mer)
+summary(mer.x13)
+
+co2$fossil.fuels<-rep(0, nrow(co2))
+b.y=mer$year[1]
+b.m=mer$month[1]
+e.y=mer$year[nrow(mer)]
+e.m=mer$month[nrow(mer)]
+
+#here's a tricky part.  we lay the MER Values directly over the co2 fossil.fuels segment
+co2.daterange <- (co2$year>b.y | (co2$year==b.y & co2$month>=b.m)) & 
+						(co2$year<e.y | (co2$year==e.y & co2$month<=e.m))
+
+co2$fossil.fuels[which(co2.daterange)]=mer$Value * 1e+15
+
+# now, we take the yearly values (month==13 stored in mer.x13), divide them by 12 and slot
+# them into the beginning of the set
+
+yearly.range = seq(co2$year[1], b.y)
+for (year in yearly.range)
+{
+	co2$fossil.fuels[co2$year==year] = mer.x13$Value[mer.x13$year==year] / 12 * 1e+15
+}
+
+```
+
+
 * Set up plot functions.
 ```{r PlotFunctions, echo=FALSE}
 plot.volcanos<- function(vol.col="green",..., text.y="bottom") 
@@ -118,15 +172,20 @@ This is heavy-duty statistics, which fortunately, does all the heavy lifting.
 I'm using the decimal date, the month, and the volcano events to predict the trend.  
 I can show you the results, but like making sausages, it would probably make you queasy.
 
-```{r vars, echo=FALSE, results='hide'	}
+```{r Setup2, echo=FALSE, results='hide', warning=FALSE	}
+library(vars, quietly=TRUE, warn.conflicts=FALSE)
+```
 
-co2.var.subset <- co2[,c("decimal_date", "month", "volcano.events", "trend")]
+```{r VARS, echo=FALSE	}
 
-co2.var.type <- c("const", "trend", "both", "none")
-co2.var.select <- VARselect(co2.var.subset, type="both")
-#co2.var.select
 
-var.co2 <- VAR(co2.var.subset, p = co2.var.select$selection["AIC(n)"], type = "both" )
+co2.var.subset <- c("decimal_date", "month", "volcano.events", "trend")
+
+co2.var.type <- "both";
+co2.var.select <- VARselect(co2[co2.var.subset], type=co2.var.type)
+
+cat("VAR(", cat(co2.var.subset, sep=", "), ") with p= ", co2.var.select$selection["AIC(n)"], ", type= ", co2.var.type)
+var.co2 <- VAR(co2[co2.var.subset], p = co2.var.select$selection["AIC(n)"], type = co2.var.type )
 #var.co2
 #op<-par(mfrow=c(2,2))
 #plot(var.co2)
@@ -142,14 +201,14 @@ trend.fitted <- var.co2$varresult$trend$fitted.values
 trend.res <- var.co2$varresult$trend$residuals
 trend.q<-quantile(trend.res)
 
-op<-par(mfrow=c(2,1))
+op<-par(mfrow=c(1,1))
 plot.co2( main="Trend Residuals",  ylab="CO2 Res",  text.y=320,
 	x=trend.date, y=trend.res, type="l")
 abline(h=trend.q[c(2,4)]);
 
 plot.co2( main="log(Trend Residuals)",  ylab="log(CO2 Res)",  text.y=NA,
-	x=var.co2$varresult$decimal_date$fitted.values, 
-	y=log(var.co2$varresult$trend$residuals+2), type="l")
+	x=var.co2$varresult$decimal_date$model$fitted.values, 
+	y=log(var.co2$varresult$trend$residuals), type="l")
 
 abline(h=log(trend.q[c(2,4)]+2));
 
@@ -173,7 +232,10 @@ for (i in 1:length(vol$Name))
 	co2.range = (co2$decimal_date>=start.date) & (co2$decimal_date<=end.date)
 	trend.range = (trend.date>=start.date) & (trend.date<=end.date)
 	
-	plot( main=paste("Trend - ",vol$Name[i]), ylab="CO2 (ppm)",
+	plot( main=paste("Average - ",vol$Name[i]), ylab="CO2 (ppm)",
+			x=co2$decimal_date[co2.range], y=co2$trend[co2.range], type="l", col="red" )
+
+	lines( main=paste("Trend - ",vol$Name[i]), ylab="CO2 (ppm)",
 			x=co2$decimal_date[co2.range], y=co2$trend[co2.range], type="l", col="blue" )
 
 	rect( vol$erupted[i], 300, vol$erupted[i]+vol$duration[i], 400, 

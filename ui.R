@@ -21,26 +21,31 @@ shinyUI( fluidPage(
 		sidebarPanel(
 			h3("Examine Volcano Events"),
 			p("Here, we can examine each of the eruptions more closely. Select the name of a volcano to see its eruption. Look for increased CO2 activity in the residuals after the volcano"),
+
+			selectInput("Eruption.choose", "Choose a Volcanic Eruption", choices=NULL,
+				selected = 1,  multiple = FALSE, selectize = FALSE),
+
+			p("You can zoom in on Volcano events to see if there is any significance in the residuals."),
 			
-			uiOutput("eruptionSelector"),
-			
-			p("You can zoom in on Volcano events to see if there is any significance in the residuals.")
+			sliderInput("Eruption.plot.range", "Select Plot Range (months)",
+				min=-25, max = 100, value = c(-6, 24))
 		),
 		mainPanel(
 			plotOutput("eruption")
 		)
 	),
 
-	sidebarLayout(
-		sidebarPanel( h3("Perform Regression"),
-						  checkboxInput("reg.1", label = "Control 1", value = FALSE),
-						  numericInput("reg.2", label="Control 2", value=1),
-						  actionButton("doRegression", "Do Regression")
-		),
-		mainPanel(
-			div(plotOutput("regressionPlot", width="90%"))
-		)
-	),
+# 	sidebarLayout(
+# 		sidebarPanel( h3("Perform Regression"),
+# 						  checkboxInput("reg.1", label = "Show Regression", value = FALSE),
+# 						  numericInput("reg.2", label="Control 2", value=1),
+# 						  uiOutput("regressionControl"),
+# 						  actionButton("doRegression", "Do Regression")
+# 		),
+# 		mainPanel(
+# 			div(plotOutput("regressionPlot", width="90%"))
+# 		)
+#	),
 
 	sidebarLayout(
 		sidebarPanel( h3("Examine Residuals"),

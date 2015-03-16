@@ -100,10 +100,11 @@ plot.residuals <- function(log.y, offset=0) {
 plot.eruption <- function(eruption, prior=0.5, after=2.0)
 # plots the trend residuals from the period prior to and after the event
 {
+	cat("plot.eruption( e=", eruption, "prior=", prior, "after=", after)
 	op<-par(mfrow=c(3,1), mar=c(2,4,1.4,0.5))
 	date.erupted = vol$erupted[eruption]
-	start.date = date.erupted-0.5
-	end.date = date.erupted+2
+	start.date = date.erupted+prior
+	end.date = date.erupted+after
 	
 	co2.range = (co2$decimal_date>=start.date) & (co2$decimal_date<=end.date)
 	trend.range = (trend.date>=start.date) & (trend.date<=end.date)
@@ -133,6 +134,8 @@ plot.eruption <- function(eruption, prior=0.5, after=2.0)
 	
 	rect( vol$erupted[eruption], -1, vol$erupted[eruption]+vol$duration[eruption], 1,
 			col=alpha("cyan", .1), border="green")
+
+	plot.volcanos(x=trend.date[trend.range],)	
 	
 	abline(h=trend.q[c(2,4)]);
 
@@ -141,11 +144,19 @@ plot.eruption <- function(eruption, prior=0.5, after=2.0)
 
 nurf.names <- function(vect) { setNames( seq(1, length(vect)), vect) }
 
-eruptionSelector.widget <- function(name="selectEruption") {
+eruptionSelector.widget <- function(name="Eruption") {
+	named<-function(tag) {n=paste(name,'.',tag, sep=""); cat("Widget",n, "\n"); n}
 	renderUI({
-		selectInput(name, "Choose a Volcanic Eruption", 
+		selectInput(named("choose"), "Choose a Volcanic Eruption", 
 						nurf.names(vol$Name), selected = 1, 
 						multiple = FALSE, selectize = FALSE)
+	})
+}
+dateSelector.widget <- function(name="Eruption", prior, after) {
+	named<-function(tag) {n=paste(name,'.',tag, sep=""); cat("Widget",n, "\n"); n}
+	renderUI({
+		sliderInput(named("plot.range"), "Select Plot Range (months)",
+					min=-25, max = 100, value = c(prior, after))
 	})
 }
 
@@ -156,6 +167,8 @@ shinyServer(function(input, output, session) {
 	
 	var.co2 <- var.co2  # each session gets a copy of the initial variance.
 	
+	updateSelectInput(session, "Eruption.choose", choices = nurf.names(vol$Name))
+	
 	doRegression <- function(p=2, type= "trend") 
 	{
 		cat("doing regression, p= ", p)
@@ -165,26 +178,28 @@ shinyServer(function(input, output, session) {
 		trend.res <- var.co2$varresult$trend$residuals
 		trend.q<-quantile(trend.res)
 	}
-	output$eruptionSelector <- eruptionSelector.widget()
+#	output$EruptionSelector <- eruptionSelector.widget()
+#	output$DateSelector <- dateSelector.widget("Eruption", date.range[1], date.range[2]);
 	
 #	output$volcanoNames <- renderText(toJSON(vol$Name))
 	
 	output$eruption <- renderPlot({
-#		cat("in render plot\n")
-		e <- as.integer(input$selectEruption)
-		try( silent=TRUE, #can't shake: Error in if (e > 0) { : argument is of length zero
-			if (e>0) {
-#				cat("render eruption plot [",e,"]-",vol$Name[e],"\n")
-				plot.eruption(e)
-			}
-		)
+		cat("starting render plot\n")
+		
+		e <- input$Eruption.choose
+		range <- input$Eruption.plot.range
+
+		tryCatch(T, error = function(err) err, if (is.null(e)) e="1", e="1")
+		tryCatch(T, error = function(err) err, if (is.null(range)) range = c(-6, 24), range = c(-6, 24) )
+
+		cat("range:"); str(range)
+		eruption = plot.eruption(as.integer(e), range[1]/12, range[2]/12)
 	})
 
 	output$regressionResults <- renderText({
 		input$doRegression
 		isolate({
 			doRegression()
-			
 		})
 	})
 	

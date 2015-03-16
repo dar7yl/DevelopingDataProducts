@@ -1,36 +1,21 @@
 # Volcano CO² Preliminary Exploration
 Daryl Hegyi  
-Thursday, March 12, 2015  
+`r format(Sys.time(), ' %A, %B %d, %Y')`  
 ## The Contribution of Volcanoes to Global Warming.
 Given a continuous long-duration record of CO2 at a single location (Mauna Loa), and a list of volcano eruptions during the monitored period, determine the amount of CO2 injected into the atmosphere by each volcano, and use that information to quantify the CO2 that can be attributed to geological (volcanic) processes.
 
 I set out to do this because many global warming deniers were claiming that volcanic eruptions spewed so much CO2 that it completely dominated the climate, and man's influence was negligible.  I wanted to explore the impact of volcanos on the CO2 record, to see if volcanos were indeed significant.
 
+<a id="Explorer"></a> 
+
+   I have created an interactive Volcano CO² Explorer, which has controls to manipulate the various parameters of the analysis, and to display different portions of the data (especially around volcanos).  
+
+[Click Here to run the Interactive Volcano CO² Explorer](http://d7yl.port0.org:2323)
+
 Please note that this is a work-product, and in no way constitutes a final form,
 nor claim not to bore you with dry statistics and droll commentary.
 
 
-```r
-library(scales, quietly=TRUE, warn.conflicts=FALSE)
-library(lubridate, quietly=TRUE, warn.conflicts=FALSE)
-library(vars, quietly=TRUE, warn.conflicts=FALSE)
-```
-
-```
-## Loading required package: zoo
-## 
-## Attaching package: 'zoo'
-## 
-## The following objects are masked from 'package:base':
-## 
-##     as.Date, as.Date.numeric
-## 
-## Loading required package: sandwich
-```
-
-```r
-options(width=75)
-```
 ## About the Data
 
 * CO2 data: <http://www.esrl.noaa.gov/gmd/ccgg/trends/#mlo_full> copied to ./data/ on Mar 5, 2015.
@@ -94,6 +79,10 @@ Data are reported as a dry mole fraction defined as the number of molecules of c
 The volcano events are added to a vector (initially set to 0's) alongside the trend.
 
 
+* load energy consumption dataset (if enabled)
+
+
+
 * Set up plot functions.
 
 # Initial plot
@@ -108,6 +97,31 @@ I'm using the decimal date, the month, and the volcano events to predict the tre
 I can show you the results, but like making sausages, it would probably make you queasy.
 
 
+```
+## 
+## Attaching package: 'MASS'
+## 
+## The following object is masked from 'package:dplyr':
+## 
+##     select
+## 
+## Loading required package: zoo
+## 
+## Attaching package: 'zoo'
+## 
+## The following objects are masked from 'package:base':
+## 
+##     as.Date, as.Date.numeric
+## 
+## Loading required package: sandwich
+```
+
+
+```
+## [1] "decimal_date"   "month"          "volcano.events" "average"       
+## [5] "trend"         
+## VAR( decimal_date month volcano.events average trend ) with p=  9 , type=  both
+```
 ## Plot the Residuals
 
 In order to see if there is any information left, I've plotted the residuals and the logarithm of the residuals with lines at the 25% and 75% quantiles, along with the green volcano lines.  The logs are plotted (with an offset to avoid <= 0)  to emphasize positive trends).
